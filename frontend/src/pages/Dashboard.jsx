@@ -320,13 +320,12 @@ const Dashboard = () => {
             </div>
           </GlassPanel>
 
-          <GlassPanel className="relative overflow-hidden bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border-indigo-500/20">
+          <GlassPanel className="relative overflow-hidden group">
             <div className="absolute inset-y-0 right-0 w-1/2 z-0">
               <HeroWidget />
             </div>
             {/* Decorative circles */}
-            <div className="absolute top-4 right-4 w-20 h-20 bg-indigo-500/10 rounded-full blur-2xl" />
-            <div className="absolute bottom-4 left-4 w-16 h-16 bg-purple-500/10 rounded-full blur-xl" />
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-700" />
 
             <div className="relative z-10 pointer-events-none p-8 flex flex-col items-start justify-center h-full">
               <div className="flex items-center gap-1.5 mb-3">
