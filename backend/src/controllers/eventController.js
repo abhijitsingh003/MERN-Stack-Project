@@ -4,7 +4,6 @@ const CalendarShare = require('../models/CalendarShare');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const sendEmail = require('../utils/emailService');
 
 const resolveCalendarAccess = async (calendarId, userId) => {
   const calendar = await Calendar.findById(calendarId);
@@ -133,173 +132,13 @@ const createEvent = async (req, res) => {
     await Notification.insertMany(notifications);
   }
 
-  const emailSubject = `New event in "${calendar.name}": ${title}`;
-  const eventStart = start ? new Date(start) : null;
-  const eventEnd = end ? new Date(end) : null;
-  const startText = eventStart ? eventStart.toLocaleString() : '';
-  const endText = eventEnd ? eventEnd.toLocaleString() : '';
-  const creatorName = creator ? creator.name : 'Someone';
-  const viewLink = `http://localhost:5173/`;
-
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f7fb;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f7fb;">
-        <tr>
-          <td style="padding: 40px 20px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden;">
-              <!-- Header with gradient -->
-              <tr>
-                <td style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); padding: 40px 40px 32px; text-align: center;">
-                  <div style="width: 64px; height: 64px; background-color: rgba(255, 255, 255, 0.2); border-radius: 16px; margin: 0 auto 20px; display: inline-flex; align-items: center; justify-content: center;">
-                    <span style="font-size: 32px;">🎉</span>
-                  </div>
-                  <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Event Created</h1>
-                  <p style="margin: 8px 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.85);">in ${calendar.name}</p>
-                </td>
-              </tr>
-              
-              <!-- Main content -->
-              <tr>
-                <td style="padding: 40px;">
-                  <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #64748b; text-align: center;">
-                    <strong style="color: #1e293b;">${creatorName}</strong> created a new event in your shared calendar.
-                  </p>
-                  
-                  <!-- Event Card -->
-                  <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border: 1px solid #d8b4fe; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #7c3aed;">${title}</h2>
-                    
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                            <tr>
-                              <td style="width: 24px; vertical-align: top;">
-                                <span style="font-size: 16px;">📅</span>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <p style="margin: 0; font-size: 13px; color: #94a3b8;">Date & Time</p>
-                                <p style="margin: 4px 0 0; font-size: 14px; color: #1e293b; font-weight: 500;">
-                                  ${startText}${endText ? ` → ${endText}` : ''}
-                                </p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      ${location ? `
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                            <tr>
-                              <td style="width: 24px; vertical-align: top;">
-                                <span style="font-size: 16px;">📍</span>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <p style="margin: 0; font-size: 13px; color: #94a3b8;">Location</p>
-                                <p style="margin: 4px 0 0; font-size: 14px; color: #1e293b; font-weight: 500;">${location}</p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      ` : ''}
-                      ${description ? `
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                            <tr>
-                              <td style="width: 24px; vertical-align: top;">
-                                <span style="font-size: 16px;">📝</span>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <p style="margin: 0; font-size: 13px; color: #94a3b8;">Description</p>
-                                <p style="margin: 4px 0 0; font-size: 14px; color: #1e293b;">${description}</p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      ` : ''}
-                    </table>
-                  </div>
-                  
-                  <!-- CTA Button -->
-                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                    <tr>
-                      <td style="text-align: center; padding: 8px 0 16px;">
-                        <a href="${viewLink}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);">
-                          View in CalManage
-                        </a>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-              
-              <!-- Footer -->
-              <tr>
-                <td style="background-color: #f8fafc; padding: 20px 40px; border-top: 1px solid #e2e8f0;">
-                  <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center;">
-                    You're receiving this because you have access to the "${calendar.name}" calendar.
-                  </p>
-                </td>
-              </tr>
-              
-
-              <tr>
-                <td style="padding: 20px 40px 24px; text-align: center;">
-                  <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                    © ${new Date().getFullYear()} CalManage. All rights reserved.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `;
-
   // Fetch populated event for response
   const populatedEvent = await Event.findById(event._id)
     .populate('createdBy', 'name email')
     .populate('calendar', 'name');
 
-  // Send response immediately
+  // Send response immediately (emails will be sent when event starts via cron job)
   res.status(201).json({ success: true, event: populatedEvent });
-
-  // Send emails in background (Fire and forget)
-  const recipientEmails = [];
-
-  // Check creator's preference
-  if (creator.emailNotifications !== false) {
-    recipientEmails.push(creator.email);
-  }
-
-  // Check shared users' preferences
-  for (const share of shares) {
-    if (share.user.email) {
-      // Fetch full user to check preference
-      const sharedUser = await User.findById(share.user._id).select('emailNotifications email');
-      if (sharedUser && sharedUser.emailNotifications !== false) {
-        recipientEmails.push(sharedUser.email);
-      }
-    }
-  }
-
-  const uniqueEmails = Array.from(new Set(recipientEmails.filter(Boolean)));
-  if (uniqueEmails.length > 0) {
-    Promise.all(uniqueEmails.map(email => sendEmail(email, emailSubject, emailHtml)))
-      .catch(err => console.error('Error sending background emails:', err));
-  }
 };
 
 // @desc    Update an event
@@ -430,115 +269,8 @@ const deleteEvent = async (req, res) => {
     await Notification.insertMany(notifications);
   }
 
-  // Send response immediately
+  // Send response immediately (no emails for deletion - emails only for event start/end)
   res.status(200).json({ id: req.params.id });
-
-  // Send email notifications for event deletion in background
-  const viewLink = `http://localhost:5173/`;
-  const deleteEmailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f7fb;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f7fb;">
-        <tr>
-          <td style="padding: 40px 20px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden;">
-              <!-- Header with gradient -->
-              <tr>
-                <td style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%); padding: 40px 40px 32px; text-align: center;">
-                  <div style="width: 64px; height: 64px; background-color: rgba(255, 255, 255, 0.2); border-radius: 16px; margin: 0 auto 20px; display: inline-flex; align-items: center; justify-content: center;">
-                    <span style="font-size: 32px;">🗑️</span>
-                  </div>
-                  <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">Event Deleted</h1>
-                  <p style="margin: 8px 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.85);">from ${calendarName}</p>
-                </td>
-              </tr>
-              
-              <!-- Main content -->
-              <tr>
-                <td style="padding: 40px;">
-                  <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #64748b; text-align: center;">
-                    <strong style="color: #1e293b;">${deleterName}</strong> deleted an event from your shared calendar.
-                  </p>
-                  
-                  <!-- Event Card -->
-                  <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 1px solid #fca5a5; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #dc2626; text-decoration: line-through;">${eventTitle}</h2>
-                  </div>
-                  
-                  <!-- CTA Button -->
-                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                    <tr>
-                      <td style="text-align: center; padding: 8px 0 16px;">
-                        <a href="${viewLink}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
-                          View Calendar
-                        </a>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-              
-              <!-- Footer -->
-              <tr>
-                <td style="background-color: #f8fafc; padding: 20px 40px; border-top: 1px solid #e2e8f0;">
-                  <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center;">
-                    You're receiving this because you have access to the "${calendarName}" calendar.
-                  </p>
-                </td>
-              </tr>
-              
-
-              <tr>
-                <td style="padding: 20px 40px 24px; text-align: center;">
-                  <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                    © ${new Date().getFullYear()} CalManage. All rights reserved.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `;
-
-  // Collect recipients who have email notifications enabled
-  const deleteRecipientEmails = [];
-
-  // Check deleter's preference
-  if (deleter && deleter.emailNotifications !== false) {
-    deleteRecipientEmails.push(deleter.email);
-  }
-
-  // Check calendar owner's preference
-  const calendarOwner = await User.findById(calendar.user).select('email emailNotifications');
-  if (calendarOwner && calendarOwner._id.toString() !== req.user.id.toString() && calendarOwner.emailNotifications !== false) {
-    deleteRecipientEmails.push(calendarOwner.email);
-  }
-
-  // Check shared users' preferences
-  for (const share of shares) {
-    if (share.user._id.toString() !== req.user.id.toString()) {
-      const sharedUser = await User.findById(share.user._id).select('emailNotifications email');
-      if (sharedUser && sharedUser.emailNotifications !== false) {
-        deleteRecipientEmails.push(sharedUser.email);
-      }
-    }
-  }
-
-  const uniqueDeleteEmails = Array.from(new Set(deleteRecipientEmails.filter(Boolean)));
-  if (uniqueDeleteEmails.length > 0) {
-    const deleteEmailSubject = `Event deleted from "${calendarName}": ${eventTitle}`;
-
-    Promise.all(uniqueDeleteEmails.map(email => sendEmail(email, deleteEmailSubject, deleteEmailHtml)))
-      .catch(err => console.error('Error sending background deletion emails:', err));
-  }
 };
 
 module.exports = {

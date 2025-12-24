@@ -419,7 +419,20 @@ export const CalendarProvider = ({ children }) => {
       if (res.ok) {
         setEvents(prev => [...prev, data]);
         if (dashboardEvents) {
-          setDashboardEvents(prev => [...prev, data].sort((a, b) => compareAsc(new Date(a.start), new Date(b.start))));
+          // Find calendar to enrich event with metadata
+          const calendar = calendars.find(c => c._id === calendarId) ||
+            sharedCalendars.find(c => c._id === calendarId);
+          const enrichedEvent = {
+            ...data,
+            calendarId,
+            color: calendar?.color || '#6366f1',
+            calendarName: calendar?.name || 'Calendar',
+          };
+          // Deduplicate by _id to prevent duplicates
+          setDashboardEvents(prev => {
+            const updatedEvents = [...prev.filter(e => e._id !== data._id), enrichedEvent];
+            return updatedEvents.sort((a, b) => compareAsc(new Date(a.start), new Date(b.start)));
+          });
         }
         return { success: true, event: data };
       }
@@ -428,7 +441,6 @@ export const CalendarProvider = ({ children }) => {
       console.error(error);
       return { success: false, error: 'Failed to create event' };
     }
-    return { success: false, error: 'Failed to create event' };
   }
 
 

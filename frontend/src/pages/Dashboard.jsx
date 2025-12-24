@@ -19,7 +19,7 @@ import {
   startOfDay,
   endOfDay
 } from 'date-fns';
-import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Square, CheckSquare, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil, Sparkles, UserPlus, History, X, Mail } from 'lucide-react';
+import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil, Sparkles, UserPlus, History, X, Mail } from 'lucide-react';
 import { formatTimestamp } from '../utils/formatTimestamp';
 import GlassPanel from '../components/UI/GlassPanel';
 import HeroWidget from '../components/3D/HeroWidget';
@@ -102,6 +102,7 @@ const Dashboard = () => {
     deleteEvent,
     updateEvent,
     fetchCalendarEvents,
+    fetchSharedCalendars,
     visibleCalendarIds,
     setDashboardEvents,
     selectedDate,
@@ -135,8 +136,6 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
 
-  // Todo-style checked events (local UI state, resets on date change)
-  const [checkedEventIds, setCheckedEventIds] = useState(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -192,8 +191,6 @@ const Dashboard = () => {
 
     if (token) loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    if (token) loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendars, sharedCalendars]);
 
   // Listen for dashboardEvents updates (creation/deletion/updates)
@@ -233,7 +230,13 @@ const Dashboard = () => {
   const allDayEvents = todaysEvents.filter(ev => ev.allDay);
 
   // Filter out checked events for "Up Next" calculation
-  const pendingEvents = todaysEvents.filter(ev => !checkedEventIds.has(ev._id));
+  const pendingEvents = todaysEvents.filter(ev => {
+    // For today, exclude events whose end time has passed
+    if (isTodayDate && !ev.allDay) {
+      return isAfter(new Date(ev.end), now);
+    }
+    return true;
+  });
 
   const upNextIndex = pendingEvents.findIndex(ev => {
     if (isPastDate) return false;
@@ -243,40 +246,35 @@ const Dashboard = () => {
 
   const upNext = upNextIndex !== -1 ? pendingEvents[upNextIndex] : null;
 
-  // Show ALL events for the day, sorted: unchecked first, checked at bottom
+  // Separate upcoming and past events for the selected day
   const daysEventsUnsorted = [...allDayEvents, ...timedEvents];
-  const daysEvents = useMemo(() => {
-    const unchecked = daysEventsUnsorted.filter(ev => !checkedEventIds.has(ev._id));
-    const checked = daysEventsUnsorted.filter(ev => checkedEventIds.has(ev._id));
-    return [...unchecked, ...checked];
-  }, [daysEventsUnsorted, checkedEventIds]);
 
-  let pastEvents = [];
-  if (isPastDate) {
-    pastEvents = [...allDayEvents, ...timedEvents];
-  } else if (isTodayDate) {
-    // For "Earlier Today" section (optional, maybe user doesn't want it separate if using daysEvents?)
-    // The user asked for "Events for specific dates" to show all events.
-    // I will keep "Earlier Today" logic separate if needed, but for the main list:
-    // User wants "in the specific dates how many events will be there it will appear there".
-    // I will use `daysEvents` for the main list.
-  }
+  // Sort by start time helper
+  const sortByStartTime = (a, b) => new Date(a.start) - new Date(b.start);
+
+  // For today: separate upcoming from past events
+  // For other dates: all events go to their respective category
+  const { upcomingEvents, pastEventsToday } = useMemo(() => {
+    if (isTodayDate) {
+      const upcoming = daysEventsUnsorted
+        .filter(ev => ev.allDay || isAfter(new Date(ev.end), now))
+        .sort(sortByStartTime);
+      const past = daysEventsUnsorted
+        .filter(ev => !ev.allDay && !isAfter(new Date(ev.end), now))
+        .sort(sortByStartTime);
+      return { upcomingEvents: upcoming, pastEventsToday: past };
+    } else if (isPastDate) {
+      // All events on past dates are "past"
+      return { upcomingEvents: [], pastEventsToday: daysEventsUnsorted.sort(sortByStartTime) };
+    } else {
+      // Future date: all events are "upcoming"
+      return { upcomingEvents: daysEventsUnsorted.sort(sortByStartTime), pastEventsToday: [] };
+    }
+  }, [daysEventsUnsorted, isTodayDate, isPastDate, now]);
 
   const handleReschedule = (event) => {
     setEventToEdit(event);
     setIsModalOpen(true);
-  };
-
-  const toggleEventChecked = (eventId) => {
-    setCheckedEventIds(prev => {
-      const next = new Set(prev);
-      if (next.has(eventId)) {
-        next.delete(eventId);
-      } else {
-        next.add(eventId);
-      }
-      return next;
-    });
   };
 
   const handleDeleteEvent = async (event) => {
@@ -297,6 +295,11 @@ const Dashboard = () => {
         body: JSON.stringify({ status })
       });
       setInvites(invites.filter(i => i._id !== id));
+
+      // If accepted, refresh shared calendars to load the new calendar's events
+      if (status === 'accepted') {
+        await fetchSharedCalendars();
+      }
     } catch (error) { console.error(error); }
   };
 
@@ -454,81 +457,70 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Rest of Today / Day's List */}
+        {/* Today's Schedule / Upcoming Events */}
         {!isPastDate && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest pl-1">
                 {isTodayDate ? 'Today\'s Schedule' : `Events for ${format(selectedDate, 'MMM d')}`}
               </h3>
-              {daysEvents.length > 0 && (
-                <span className="text-xs text-gray-500">{daysEvents.length} {daysEvents.length === 1 ? 'event' : 'events'}</span>
+              {upcomingEvents.length > 0 && (
+                <span className="text-xs text-gray-500">{upcomingEvents.length} {upcomingEvents.length === 1 ? 'event' : 'events'}</span>
               )}
             </div>
             <AnimatePresence mode="popLayout">
               <div className="space-y-3">
-                {daysEvents.length > 0 ? (
-                  daysEvents.map(event => {
-                    const isChecked = checkedEventIds.has(event._id);
-                    return (
-                      <GlassPanel
-                        key={event._id}
-                        layout
-                        as={motion.div}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        className={`p-4 flex items-center group border-l-4 ${event.allDay ? 'border-l-amber-500' : 'border-l-blue-500'} ${isChecked ? 'opacity-50' : ''} hover:bg-white/5 transition-colors`}
+                {upcomingEvents.length > 0 ? (
+                  upcomingEvents.map(event => (
+                    <GlassPanel
+                      key={event._id}
+                      layout
+                      as={motion.div}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className={`p-4 flex items-center group border-l-4 ${event.allDay ? 'border-l-amber-500' : 'border-l-blue-500'} hover:bg-white/5 transition-colors cursor-pointer`}
+                      onClick={() => handleReschedule(event)}
+                    >
+                      {/* Time */}
+                      <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
+                        {event.allDay ? (
+                          <p className="text-sm font-bold text-amber-500 uppercase">All Day</p>
+                        ) : (
+                          <>
+                            <p className="text-sm font-bold text-gray-300">{format(new Date(event.start), 'MMM d')}</p>
+                            <p className="text-xs mt-0.5 font-medium text-gray-400">
+                              {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium truncate transition-colors text-gray-200">{event.title}</h4>
+                      </div>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
+                        className="ml-2 p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
                       >
-                        {/* Checkbox */}
-                        <button
-                          onClick={() => toggleEventChecked(event._id)}
-                          className="mr-3 text-gray-400 hover:text-green-400 transition-colors"
-                        >
-                          {isChecked ? <CheckSquare className="w-5 h-5 text-green-500" /> : <Square className="w-5 h-5" />}
-                        </button>
-
-                        {/* Time - Updated Layout */}
-                        {/* Time - Updated Layout */}
-                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
-                          {event.allDay ? (
-                            <p className="text-sm font-bold text-amber-500 uppercase">All Day</p>
-                          ) : (
-                            <>
-                              <p className={`text-sm font-bold ${isChecked ? 'text-gray-500' : 'text-gray-300'}`}>{format(new Date(event.start), 'MMM d')}</p>
-                              <p className={`text-xs mt-0.5 font-medium ${isChecked ? 'text-gray-600' : 'text-gray-400'}`}>
-                                {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
-                              </p>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`text-sm font-medium truncate transition-colors ${isChecked ? 'line-through text-gray-500' : 'text-gray-200'}`}>{event.title}</h4>
-                        </div>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
-                          className="ml-2 p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </GlassPanel>
-                    );
-                  })
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </GlassPanel>
+                  ))
                 ) : (
                   <GlassPanel className="py-12 px-8 text-center rounded-2xl bg-transparent bg-gradient-to-br from-white/[0.02] to-transparent border-white/5 shadow-none backdrop-blur-none">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
                       <CalendarIcon className="w-6 h-6 text-indigo-400/50" />
                     </div>
                     <p className="text-gray-400 text-sm font-medium mb-1">
-                      {searchQuery && searchQuery.trim().length > 0 ? 'No events match your search' : 'No events scheduled'}
+                      {searchQuery && searchQuery.trim().length > 0 ? 'No events match your search' : 'No upcoming events'}
                     </p>
                     <p className="text-gray-600 text-xs">
-                      {searchQuery && searchQuery.trim().length > 0 ? 'Try a different search term' : 'Your schedule is clear for today'}
+                      {searchQuery && searchQuery.trim().length > 0 ? 'Try a different search term' : 'Your schedule is clear'}
                     </p>
                   </GlassPanel>
                 )}
@@ -537,49 +529,92 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Past Events */}
-        {
-          pastEvents.length > 0 && (
-            <div className="opacity-60 grayscale-[50%] hover:opacity-100 hover:grayscale-0 transition-all duration-300">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 pl-1">
-                {isTodayDate ? 'Earlier Today' : 'Past Events'}
+        {/* Past Events (for today) */}
+        {isTodayDate && pastEventsToday.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 pl-1">
+              Completed Earlier
+            </h3>
+            <div className="space-y-3">
+              {pastEventsToday.map(event => (
+                <GlassPanel
+                  key={event._id}
+                  className="p-4 flex items-center group border-l-4 border-l-gray-600 bg-white/[0.02] hover:bg-white/[0.06] backdrop-blur-sm transition-all duration-200 cursor-pointer"
+                  onClick={() => handleReschedule(event)}
+                >
+                  {/* Time */}
+                  <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
+                    <p className="text-sm font-bold text-gray-500">{format(new Date(event.start), 'MMM d')}</p>
+                    <p className="text-xs mt-0.5 font-medium text-gray-600">
+                      {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
+                    </p>
+                  </div>
+
+                  {/* Title */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium truncate text-gray-500 line-through">{event.title}</h4>
+                  </div>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
+                    className="ml-2 p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </GlassPanel>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Past Date Events */}
+        {isPastDate && pastEventsToday.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">
+                Events on {format(selectedDate, 'MMM d')}
               </h3>
-              <div className="space-y-4">
-                {pastEvents.map(event => (
-                  <GlassPanel key={event._id} className={`p-5 flex items-center group cursor-pointer ${event.allDay ? 'border-l-4 border-l-gray-600' : ''}`} onClick={() => handleReschedule(event)}>
+              <span className="text-xs text-gray-500">{pastEventsToday.length} {pastEventsToday.length === 1 ? 'event' : 'events'}</span>
+            </div>
+            <div className="space-y-3">
+              {pastEventsToday.map(event => (
+                <GlassPanel
+                  key={event._id}
+                  className={`p-4 flex items-center group border-l-4 ${event.allDay ? 'border-l-amber-500/50' : 'border-l-gray-600'} hover:bg-white/5 transition-colors cursor-pointer`}
+                  onClick={() => handleReschedule(event)}
+                >
+                  {/* Time */}
+                  <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
                     {event.allDay ? (
-                      <>
-                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
-                          <p className="text-sm font-bold text-gray-500 uppercase">All Day</p>
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
-                        </div>
-                      </>
+                      <p className="text-sm font-bold text-amber-500/60 uppercase">All Day</p>
                     ) : (
                       <>
-                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
-                          <p className="text-sm font-bold text-gray-400">{format(new Date(event.start), 'MMM d')}</p>
-                          <p className="text-xs text-gray-500 font-medium mt-0.5">
-                            {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
-                          </p>
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
-                        </div>
+                        <p className="text-sm font-bold text-gray-500">{format(new Date(event.start), 'MMM d')}</p>
+                        <p className="text-xs mt-0.5 font-medium text-gray-600">
+                          {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
+                        </p>
                       </>
                     )}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white">
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </GlassPanel>
-                ))}
-              </div>
+                  </div>
+
+                  {/* Title */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium truncate text-gray-400">{event.title}</h4>
+                  </div>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
+                    className="ml-2 p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </GlassPanel>
+              ))}
             </div>
-          )
-        }
+          </div>
+        )}
 
         {/* Empty State for Past Dates with No Events */}
         {
@@ -629,21 +664,23 @@ const Dashboard = () => {
         </GlassPanel>
 
         <GlassPanel className="p-6">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            Pending Invites
+          <div className="flex items-center gap-2 pb-4 mb-4 border-b border-white/10">
+            <div className="p-2 rounded-lg bg-indigo-500/10">
+              <UserPlus className="w-4 h-4 text-indigo-400" />
+            </div>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              Pending Invites
+            </h3>
             {invites.length > 0 && (
-              <div className="relative p-2 rounded-xl bg-white/5 border border-white/10">
-                <Mail className="w-4 h-4 text-gray-300" strokeWidth={1.5} />
-                <span className="absolute -top-1.5 -right-1.5 bg-indigo-400/70 text-white min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-medium flex items-center justify-center">
-                  {invites.length}
-                </span>
-              </div>
+              <span className="ml-auto text-xs font-medium text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                {invites.length}
+              </span>
             )}
-          </h3>
+          </div>
           <div className="space-y-4">
             {invites.length > 0 ? invites.map(invite => (
               <div key={invite._id} className="pb-4 border-b border-white/5 last:border-0 last:pb-0">
-                <h4 className="font-semibold text-white mb-1">{invite.calendar?.name}</h4>
+                <h4 className="text-base font-medium text-gray-300 mb-2">{invite.calendar?.name}</h4>
                 <p className="text-xs text-gray-400 mb-3">
                   Invited by <span className="text-indigo-300 font-medium">{invite.calendar?.user?.name}</span>
                 </p>
