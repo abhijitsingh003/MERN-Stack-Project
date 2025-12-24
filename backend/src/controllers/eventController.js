@@ -268,7 +268,15 @@ const createEvent = async (req, res) => {
     </html>
   `;
 
-  // Collect recipients who have email notifications enabled
+  // Fetch populated event for response
+  const populatedEvent = await Event.findById(event._id)
+    .populate('createdBy', 'name email')
+    .populate('calendar', 'name');
+
+  // Send response immediately
+  res.status(201).json({ success: true, event: populatedEvent });
+
+  // Send emails in background (Fire and forget)
   const recipientEmails = [];
 
   // Check creator's preference
@@ -289,16 +297,9 @@ const createEvent = async (req, res) => {
 
   const uniqueEmails = Array.from(new Set(recipientEmails.filter(Boolean)));
   if (uniqueEmails.length > 0) {
-    for (const email of uniqueEmails) {
-      await sendEmail(email, emailSubject, emailHtml);
-    }
+    Promise.all(uniqueEmails.map(email => sendEmail(email, emailSubject, emailHtml)))
+      .catch(err => console.error('Error sending background emails:', err));
   }
-
-  const populatedEvent = await Event.findById(event._id)
-    .populate('createdBy', 'name email')
-    .populate('calendar', 'name');
-
-  res.status(201).json({ success: true, event: populatedEvent });
 };
 
 // @desc    Update an event
@@ -429,7 +430,10 @@ const deleteEvent = async (req, res) => {
     await Notification.insertMany(notifications);
   }
 
-  // Send email notifications for event deletion
+  // Send response immediately
+  res.status(200).json({ id: req.params.id });
+
+  // Send email notifications for event deletion in background
   const viewLink = `http://localhost:5173/`;
   const deleteEmailHtml = `
     <!DOCTYPE html>
@@ -531,12 +535,10 @@ const deleteEvent = async (req, res) => {
   const uniqueDeleteEmails = Array.from(new Set(deleteRecipientEmails.filter(Boolean)));
   if (uniqueDeleteEmails.length > 0) {
     const deleteEmailSubject = `Event deleted from "${calendarName}": ${eventTitle}`;
-    for (const email of uniqueDeleteEmails) {
-      await sendEmail(email, deleteEmailSubject, deleteEmailHtml);
-    }
-  }
 
-  res.status(200).json({ id: req.params.id });
+    Promise.all(uniqueDeleteEmails.map(email => sendEmail(email, deleteEmailSubject, deleteEmailHtml)))
+      .catch(err => console.error('Error sending background deletion emails:', err));
+  }
 };
 
 module.exports = {

@@ -185,14 +185,14 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className={`text-[10px] px-2 py-1 rounded-full ${share.status === 'accepted'
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-amber-500/20 text-amber-400'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-amber-500/20 text-amber-400'
                                 }`}>
                                 {share.status === 'accepted' ? 'Active' : 'Pending'}
                               </span>
                               <span className={`text-[10px] px-2 py-1 rounded-full ${share.role === 'editor'
-                                  ? 'bg-purple-500/20 text-purple-400'
-                                  : 'bg-blue-500/20 text-blue-400'
+                                ? 'bg-purple-500/20 text-purple-400'
+                                : 'bg-blue-500/20 text-blue-400'
                                 }`}>
                                 {share.role === 'editor' ? 'Editor' : 'Viewer'}
                               </span>
@@ -235,11 +235,22 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
                                 Invite Sent
                               </span>
                               <span className={`text-[10px] px-2 py-1 rounded-full ${share.role === 'editor'
-                                  ? 'bg-purple-500/20 text-purple-400'
-                                  : 'bg-blue-500/20 text-blue-400'
+                                ? 'bg-purple-500/20 text-purple-400'
+                                : 'bg-blue-500/20 text-blue-400'
                                 }`}>
                                 {share.role === 'editor' ? 'Editor' : 'Viewer'}
                               </span>
+                              <button
+                                onClick={() => handleRemoveShare(share._id)}
+                                disabled={removingShareId === share._id}
+                                className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                              >
+                                {removingShareId === share._id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -282,8 +293,8 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
                         type="button"
                         onClick={() => setRole('viewer')}
                         className={`p-3 rounded-xl border transition-all text-left ${role === 'viewer'
-                            ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.15)]'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
                           }`}
                       >
                         <div className={`text-sm font-medium ${role === 'viewer' ? 'text-blue-300' : 'text-gray-300'}`}>
@@ -297,8 +308,8 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
                         type="button"
                         onClick={() => setRole('editor')}
                         className={`p-3 rounded-xl border transition-all text-left ${role === 'editor'
-                            ? 'bg-purple-600/20 border-purple-500/50 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          ? 'bg-purple-600/20 border-purple-500/50 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
                           }`}
                       >
                         <div className={`text-sm font-medium ${role === 'editor' ? 'text-purple-300' : 'text-gray-300'}`}>
@@ -319,8 +330,8 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         className={`p-3 rounded-xl text-sm flex items-center gap-2 ${status === 'success'
-                            ? 'bg-green-500/10 border border-green-500/20 text-green-400'
-                            : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                          ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                          : 'bg-red-500/10 border border-red-500/20 text-red-400'
                           }`}
                       >
                         {status === 'success' ? (

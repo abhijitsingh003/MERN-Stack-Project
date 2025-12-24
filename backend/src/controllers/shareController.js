@@ -218,7 +218,7 @@ const getMyInvites = async (req, res) => {
   const invites = await CalendarShare.find({
     user: req.user.id,
     status: 'pending'
-  }).populate('calendar').populate({
+  }).populate({
     path: 'calendar',
     populate: { path: 'user', select: 'name email' } // Get owner info
   });
@@ -258,22 +258,45 @@ const respondToInvite = async (req, res) => {
 const removeShare = async (req, res) => {
   const { shareId } = req.params;
 
-  const share = await CalendarShare.findById(shareId).populate('calendar');
+  // Try to find in existing shares (internal users)
+  let share = await CalendarShare.findById(shareId).populate('calendar');
 
-  if (!share) {
-    return res.status(404).json({ message: 'Share not found' });
+  if (share) {
+    const calendarOwnerId = share.calendar.user.toString();
+    const recipientId = share.user.toString();
+
+    // Allow removal if user is owner of calendar OR recipient of share
+    if (req.user.id !== calendarOwnerId && req.user.id !== recipientId) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    await share.deleteOne();
+    return res.status(200).json({ message: 'Share removed' });
   }
 
-  const calendarOwnerId = share.calendar.user.toString();
-  const recipientId = share.user.toString();
+  // If not found, check pending shares (external emails)
+  const pendingShare = await PendingShare.findById(shareId);
 
-  // Allow removal if user is owner of calendar OR recipient of share
-  if (req.user.id !== calendarOwnerId && req.user.id !== recipientId) {
-    return res.status(401).json({ message: 'Not authorized' });
+  if (pendingShare) {
+    // Only calendar owner can remove pending external invites (sender)
+    // We need to fetch calendar to check ownership
+    const calendar = await Calendar.findById(pendingShare.calendar);
+
+    if (!calendar) {
+      // Clean up orphaned pending share
+      await pendingShare.deleteOne();
+      return res.status(200).json({ message: 'Share removed' });
+    }
+
+    if (calendar.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    await pendingShare.deleteOne();
+    return res.status(200).json({ message: 'Invitation removed' });
   }
 
-  await share.deleteOne();
-  res.status(200).json({ message: 'Share removed' });
+  return res.status(404).json({ message: 'Share not found' });
 };
 
 // @desc    Get all shares for a specific calendar (for owner to manage)

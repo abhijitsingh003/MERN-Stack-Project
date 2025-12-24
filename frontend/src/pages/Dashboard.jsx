@@ -92,7 +92,27 @@ const getGreeting = () => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
-  const { calendars, sharedCalendars, fetchCalendarEvents, visibleCalendarIds, dashboardEvents, setDashboardEvents, selectedDate, setSelectedDate, searchQuery, deleteEvent } = useCalendar();
+  const {
+    calendars,
+    sharedCalendars,
+    dashboardEvents,
+    loading: contextLoading,
+    refreshEvents,
+    addEvent,
+    deleteEvent,
+    updateEvent,
+    fetchCalendarEvents,
+    visibleCalendarIds,
+    setDashboardEvents,
+    selectedDate,
+    setSelectedDate,
+    searchQuery
+  } = useCalendar();
+
+  const formatTimeMinimal = (dateStr) => {
+    const date = new Date(dateStr);
+    return format(date, date.getMinutes() === 0 ? 'ha' : 'h:mma').toLowerCase();
+  };
 
   // Initialize from cache if available
   const [allEventsRaw, setAllEventsRaw] = useState(dashboardEvents || []);
@@ -203,13 +223,16 @@ const Dashboard = () => {
   const timedEvents = todaysEvents.filter(ev => !ev.allDay);
   const allDayEvents = todaysEvents.filter(ev => ev.allDay);
 
-  const upNextIndex = timedEvents.findIndex(ev => {
+  // Filter out checked events for "Up Next" calculation
+  const pendingEvents = todaysEvents.filter(ev => !checkedEventIds.has(ev._id));
+
+  const upNextIndex = pendingEvents.findIndex(ev => {
     if (isPastDate) return false;
     if (isTodayDate) return isAfter(new Date(ev.end), now);
     return true; // If not today and not past, show first event as "next"
   });
 
-  const upNext = upNextIndex !== -1 ? timedEvents[upNextIndex] : null;
+  const upNext = upNextIndex !== -1 ? pendingEvents[upNextIndex] : null;
 
   // Show ALL events for the day, sorted: unchecked first, checked at bottom
   const daysEventsUnsorted = [...allDayEvents, ...timedEvents];
@@ -347,59 +370,72 @@ const Dashboard = () => {
         {!isPastDate && (
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest pl-1">Up Next</h3>
-            <GlassPanel className="overflow-hidden border-l-4 border-l-blue-500">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <span className="text-xs font-medium text-blue-300 uppercase tracking-wider">
-                  {isTodayDate ? 'HAPPENING SOON' : 'UPCOMING'}
-                </span>
-                {upNext && upNext.isMeeting && <Video className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />}
-              </div>
+            <GlassPanel className={`p-8 relative overflow-hidden group ${!upNext ? 'bg-transparent bg-gradient-to-br from-white/[0.02] to-transparent border-white/5 shadow-none backdrop-blur-none' : ''}`}>
+              {/* Decorative circle */}
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-700" />
 
-              <div className="p-6">
+              <div className="relative z-10">
                 {upNext ? (
                   <>
-                    <h3 className="text-xl font-bold text-white mb-3">{upNext.title}</h3>
-                    <div className="flex flex-wrap gap-4 text-sm mb-6">
-                      <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg">
-                        <Clock className="w-4 h-4 text-indigo-400" />
-                        <span className="text-gray-300">
-                          {format(new Date(upNext.start), 'h:mm a')} - {format(new Date(upNext.end), 'h:mm a')}
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-xs font-medium text-blue-300 uppercase tracking-wider bg-blue-500/10 px-2 py-1 rounded">
+                        {isTodayDate ? 'Happening Soon' : 'Upcoming'}
+                      </span>
+                      {upNext.isMeeting && <Video className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />}
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-white mb-6 tracking-tight">{upNext.title}</h3>
+
+                    <div className="grid grid-cols-1 gap-3 text-sm mb-6">
+                      <div className="flex items-center gap-3 text-gray-300">
+                        <div className="p-2 rounded-lg bg-white/5 text-indigo-400">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium">
+                          {upNext.allDay ? 'All Day' : `${format(new Date(upNext.start), 'h:mm a')} - ${format(new Date(upNext.end), 'h:mm a')}`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg">
-                        <CalendarIcon className="w-4 h-4 text-indigo-400" />
-                        <span className="text-gray-300">{format(new Date(upNext.start), 'MMM d, yyyy')}</span>
+                      <div className="flex items-center gap-3 text-gray-300">
+                        <div className="p-2 rounded-lg bg-white/5 text-indigo-400">
+                          <CalendarIcon className="w-4 h-4" />
+                        </div>
+                        <span>{format(new Date(upNext.start), 'EEEE, MMMM do')}</span>
                       </div>
-                      <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg">
-                        <MapPin className="w-4 h-4 text-indigo-400" />
-                        <span className="text-gray-300">{upNext.location || (upNext.isMeeting ? upNext.meetingPlatform || 'Online' : 'No Location')}</span>
+                      <div className="flex items-center gap-3 text-gray-300">
+                        <div className="p-2 rounded-lg bg-white/5 text-indigo-400">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <span>{upNext.location || (upNext.isMeeting ? upNext.meetingPlatform || 'Online' : 'No Location')}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
+                    <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full border border-white/10 bg-indigo-600/80 flex items-center justify-center text-xs font-bold text-white ring-2 ring-transparent group-hover:ring-indigo-500/30 transition-all">
                           {user?.name?.[0]}
                         </div>
-                        <span className="text-sm text-gray-400">You</span>
+                        <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">You</span>
                       </div>
                       <button
                         onClick={() => handleReschedule(upNext)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/5 transition-all text-sm font-medium group/edit"
                       >
-                        <Pencil className="w-4 h-4" />
-                        <span className="text-sm font-medium">Edit</span>
+                        <Pencil className="w-3.5 h-3.5 group-hover/edit:rotate-12 transition-transform" />
+                        <span>Edit Event</span>
                       </button>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-6 text-gray-500">
                     {searchQuery && searchQuery.trim().length > 0
                       ? "No upcoming events match your search."
                       : (isTodayDate ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Coffee className="w-8 h-8 text-amber-400/50" />
-                          <span>No upcoming events for today. Relax and recharge!</span>
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center mb-1">
+                            <Coffee className="w-6 h-6 text-amber-400/60" />
+                          </div>
+                          <span>No upcoming events for today.</span>
+                          <span className="text-xs opacity-60">Time to relax and recharge!</span>
                         </div>
                       ) : "No events scheduled for this day.")}
                   </div>
@@ -444,14 +480,17 @@ const Dashboard = () => {
                           {isChecked ? <CheckSquare className="w-5 h-5 text-green-500" /> : <Square className="w-5 h-5" />}
                         </button>
 
-                        {/* Time */}
-                        <div className="w-20 flex-shrink-0 mr-4">
+                        {/* Time - Updated Layout */}
+                        {/* Time - Updated Layout */}
+                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
                           {event.allDay ? (
-                            <p className="text-xs font-semibold text-amber-400 uppercase">All Day</p>
+                            <p className="text-sm font-bold text-amber-500 uppercase">All Day</p>
                           ) : (
                             <>
-                              <p className={`text-sm font-semibold ${isChecked ? 'text-gray-500' : 'text-white'}`}>{format(new Date(event.start), 'h:mm a')}</p>
-                              <p className="text-xs text-gray-500">{format(new Date(event.end), 'h:mm a')}</p>
+                              <p className={`text-sm font-bold ${isChecked ? 'text-gray-500' : 'text-gray-300'}`}>{format(new Date(event.start), 'MMM d')}</p>
+                              <p className={`text-xs mt-0.5 font-medium ${isChecked ? 'text-gray-600' : 'text-gray-400'}`}>
+                                {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
+                              </p>
                             </>
                           )}
                         </div>
@@ -472,7 +511,7 @@ const Dashboard = () => {
                     );
                   })
                 ) : (
-                  <div className="py-12 px-8 text-center rounded-2xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5">
+                  <GlassPanel className="py-12 px-8 text-center rounded-2xl bg-transparent bg-gradient-to-br from-white/[0.02] to-transparent border-white/5 shadow-none backdrop-blur-none">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
                       <CalendarIcon className="w-6 h-6 text-indigo-400/50" />
                     </div>
@@ -482,71 +521,82 @@ const Dashboard = () => {
                     <p className="text-gray-600 text-xs">
                       {searchQuery && searchQuery.trim().length > 0 ? 'Try a different search term' : 'Your schedule is clear for today'}
                     </p>
-                  </div>
+                  </GlassPanel>
                 )}
               </div>
             </AnimatePresence>
           </div>
-
         )}
 
         {/* Past Events */}
-        {pastEvents.length > 0 && (
-          <div className="opacity-60 grayscale-[50%] hover:opacity-100 hover:grayscale-0 transition-all duration-300">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 pl-1">
-              {isTodayDate ? 'Earlier Today' : 'Past Events'}
-            </h3>
-            <div className="space-y-4">
-              {pastEvents.map(event => (
-                <GlassPanel key={event._id} className={`p-5 flex items-center group cursor-pointer ${event.allDay ? 'border-l-4 border-l-gray-600' : ''}`} onClick={() => handleReschedule(event)}>
-                  {event.allDay ? (
-                    <>
-                      <div className="w-24 flex-shrink-0 text-right pr-6 border-r border-white/10 mr-6">
-                        <p className="text-xs font-bold text-gray-500 uppercase">All Day</p>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-24 flex-shrink-0 text-right pr-6 border-r border-white/10 mr-6">
-                        <p className="text-sm font-bold text-gray-400">{formatTimestamp(event.start)}</p>
-                        <p className="text-xs text-gray-600">{formatTimestamp(event.end)}</p>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
-                      </div>
-                    </>
-                  )}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white">
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </GlassPanel>
-              ))}
+        {
+          pastEvents.length > 0 && (
+            <div className="opacity-60 grayscale-[50%] hover:opacity-100 hover:grayscale-0 transition-all duration-300">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 pl-1">
+                {isTodayDate ? 'Earlier Today' : 'Past Events'}
+              </h3>
+              <div className="space-y-4">
+                {pastEvents.map(event => (
+                  <GlassPanel key={event._id} className={`p-5 flex items-center group cursor-pointer ${event.allDay ? 'border-l-4 border-l-gray-600' : ''}`} onClick={() => handleReschedule(event)}>
+                    {event.allDay ? (
+                      <>
+                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
+                          <p className="text-sm font-bold text-gray-500 uppercase">All Day</p>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-24 flex-shrink-0 text-left pr-4 border-r border-white/10 mr-5">
+                          <p className="text-sm font-bold text-gray-400">{format(new Date(event.start), 'MMM d')}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">
+                            {formatTimeMinimal(event.start)} - {formatTimeMinimal(event.end)}
+                          </p>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-400">{event.title}</h4>
+                        </div>
+                      </>
+                    )}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white">
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </GlassPanel>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         {/* Empty State for Past Dates with No Events */}
-        {isPastDate && todaysEvents.length === 0 && (
-          <div>
-            <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-4 pl-1">
-              {format(selectedDate, 'MMM d, yyyy')}
-            </h3>
-            <div className="p-8 text-center border border-white/5 rounded-xl border-dashed">
-              <p className="text-gray-500 text-sm">
-                {searchQuery && searchQuery.trim().length > 0 ? 'No events match your search.' : 'No events scheduled for this day.'}
-              </p>
+        {
+          isPastDate && todaysEvents.length === 0 && (
+            <div>
+              <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-4 pl-1">
+                {format(selectedDate, 'MMM d, yyyy')}
+              </h3>
+              <GlassPanel className="py-12 px-8 text-center rounded-2xl bg-transparent bg-gradient-to-br from-white/[0.02] to-transparent border-white/5 shadow-none backdrop-blur-none">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+                  <CalendarIcon className="w-6 h-6 text-indigo-400/50" />
+                </div>
+                <p className="text-gray-400 text-sm font-medium mb-1">
+                  {searchQuery && searchQuery.trim().length > 0 ? 'No events match your search.' : 'No events scheduled for this day.'}
+                </p>
+                <p className="text-gray-600 text-xs">
+                  Time to relax!
+                </p>
+              </GlassPanel>
             </div>
-          </div>
-        )}
-      </div>
+          )
+        }
+      </div >
 
       {/* Right Column */}
-      <div className="space-y-8">
+      < div className="space-y-8" >
         <GlassPanel className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-white">{format(currentDate, 'MMMM yyyy')}</h3>
@@ -604,7 +654,7 @@ const Dashboard = () => {
             )) : <p className="text-sm text-gray-500 italic">No recent activity.</p>}
           </div>
         </GlassPanel>
-      </div>
+      </div >
 
       <EventModal
         isOpen={isModalOpen}
@@ -612,7 +662,7 @@ const Dashboard = () => {
         eventToEdit={eventToEdit}
         selectedDate={selectedDate} // Pass selected date to create event with correct date
       />
-    </div>
+    </div >
   );
 };
 
