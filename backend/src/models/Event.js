@@ -41,6 +41,15 @@ const eventSchema = mongoose.Schema({
     time: { type: Number }, // Minutes before event
     sent: { type: Boolean, default: false },
   }],
+  // Notification tracking
+  startNotificationSent: {
+    type: Boolean,
+    default: false,
+  },
+  endNotificationSent: {
+    type: Boolean,
+    default: false,
+  },
   // Meeting-specific fields
   isMeeting: {
     type: Boolean,

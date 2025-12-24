@@ -644,6 +644,17 @@ export const CalendarProvider = ({ children }) => {
         setLoading(false);
       };
       loadAll();
+
+      // Poll for notifications every 30 seconds
+      const notificationInterval = setInterval(() => {
+        fetchNotifications();
+      }, 30000);
+
+      // Poll for tasks every 30 seconds (keep in sync or separate, might as well update both if "realtime")
+      // User asked specifically for notifications, but tasks might be good too. 
+      // Let's stick to notifications first as requested.
+
+      return () => clearInterval(notificationInterval);
     }
   }, [token, fetchCalendars, fetchSharedCalendars, fetchTasks, fetchNotifications]);
 

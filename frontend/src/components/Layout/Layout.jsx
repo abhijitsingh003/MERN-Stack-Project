@@ -18,7 +18,10 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
-  Edit3
+  Edit3,
+  Play,
+  Flag,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalendarModal from '../Modals/CalendarModal';
@@ -26,6 +29,30 @@ import ShareCalendarModal from '../Modals/ShareCalendarModal';
 import EventModal from '../Modals/EventModal';
 import ThreeBackground from '../ThreeBackground';
 import GlassPanel from '../UI/GlassPanel';
+
+// Helper to get notification styling - subtle and modern
+const getNotificationStyle = (type, isRead) => {
+  switch (type) {
+    case 'event_start':
+      return {
+        icon: Play,
+        iconColor: 'text-green-400',
+        borderColor: 'border-l-green-500/50'
+      };
+    case 'event_end':
+      return {
+        icon: Flag,
+        iconColor: 'text-red-400',
+        borderColor: 'border-l-red-500/50'
+      };
+    default:
+      return {
+        icon: Bell,
+        iconColor: 'text-indigo-400',
+        borderColor: 'border-l-indigo-500/50'
+      };
+  }
+};
 
 const Layout = () => {
   const { user, logout, token } = useAuth();
@@ -458,8 +485,8 @@ const Layout = () => {
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
                     className="absolute right-0 mt-3 w-96 z-50"
                   >
-                    <GlassPanel className="p-0 overflow-hidden bg-black/90 border-white/10 shadow-2xl shadow-black/50">
-                      <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                    <GlassPanel className="p-0 overflow-hidden bg-[#0f172a] backdrop-blur-none border-indigo-500/20 shadow-2xl shadow-black/50">
+                      <div className="px-5 py-4 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-indigo-500/20">
                             <Bell className="w-4 h-4 text-indigo-400" />
@@ -475,41 +502,70 @@ const Layout = () => {
                           </button>
                         )}
                       </div>
-                      <div className="max-h-80 overflow-y-auto custom-scrollbar">
+
+                      {/* Subtle gradient divider to hand off to content */}
+                      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 mb-2" />
+
+                      <div className="max-h-80 overflow-y-auto custom-scrollbar px-3 pb-3 space-y-2">
                         {notifications.length > 0 ? (
-                          notifications.map((n, idx) => (
-                            <motion.div
-                              key={n._id}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className={`px-5 py-4 border-b border-white/5 hover:bg-white/5 transition-all cursor-pointer group ${!n.isRead ? 'bg-blue-500/5 border-l-2 border-l-blue-500' : ''}`}
-                              onClick={() => !n.isRead && markAsRead(n._id)}
-                            >
-                              <div className="flex gap-3">
-                                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!n.isRead ? 'bg-blue-500' : 'bg-gray-600'}`} />
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-sm leading-relaxed ${!n.isRead ? 'text-white font-medium' : 'text-gray-400'}`}>{n.message}</p>
-                                  <div className="flex justify-between items-center mt-2">
-                                    <span className="text-[10px] text-gray-500">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); deleteNotification(n._id); }}
-                                      className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all p-1 rounded hover:bg-red-500/10"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                          notifications.map((n, idx) => {
+                            const style = getNotificationStyle(n.type, n.isRead);
+                            return (
+                              <motion.div
+                                key={n._id}
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.02, duration: 0.15 }}
+                                className={`relative p-4 rounded-lg cursor-pointer group transition-all duration-150 
+                                  bg-white/[0.04] hover:bg-white/[0.07]
+                                `}
+                                onClick={() => !n.isRead && markAsRead(n._id)}
+                              >
+                                {/* Unread indicator dot */}
+                                {!n.isRead && (
+                                  <div className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${n.type === 'event_start' ? 'bg-green-400' :
+                                    n.type === 'event_end' ? 'bg-red-400' : 'bg-indigo-400'
+                                    }`} />
+                                )}
+
+                                <div className="flex items-start gap-3 pl-1">
+                                  {/* Icon */}
+                                  <div className={`p-2 rounded-md transition-colors ${n.type === 'event_start' ? 'bg-green-500/15' :
+                                    n.type === 'event_end' ? 'bg-red-500/15' :
+                                      'bg-indigo-500/15'
+                                    }`}>
+                                    <style.icon className={`w-4 h-4 ${style.iconColor}`} />
                                   </div>
+
+                                  {/* Content with stronger hierarchy */}
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-[13px] leading-snug font-medium ${!n.isRead ? 'text-gray-100' : 'text-gray-300'}`}>
+                                      {n.message}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500/70 mt-1.5 flex items-center gap-1">
+                                      <Clock className="w-2.5 h-2.5 opacity-60" />
+                                      {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+
+                                  {/* Delete button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); deleteNotification(n._id); }}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 self-center"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
-                              </div>
-                            </motion.div>
-                          ))
+                              </motion.div>
+                            )
+                          })
                         ) : (
-                          <div className="py-12 px-8 text-center">
-                            <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gray-500/10 flex items-center justify-center">
+                          <div className="py-10 px-6 text-center">
+                            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.04] flex items-center justify-center">
                               <Bell className="w-6 h-6 text-gray-500/50" />
                             </div>
-                            <p className="text-gray-400 text-sm font-medium mb-1">All caught up!</p>
-                            <p className="text-gray-600 text-xs">No new notifications</p>
+                            <p className="text-gray-300 text-sm font-medium mb-1">All caught up!</p>
+                            <p className="text-gray-500/70 text-xs">No new notifications</p>
                           </div>
                         )}
                       </div>

@@ -19,7 +19,7 @@ import {
   startOfDay,
   endOfDay
 } from 'date-fns';
-import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Square, CheckSquare, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil, Sparkles } from 'lucide-react';
+import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Square, CheckSquare, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil, Sparkles, UserPlus, History, X, Mail } from 'lucide-react';
 import { formatTimestamp } from '../utils/formatTimestamp';
 import GlassPanel from '../components/UI/GlassPanel';
 import HeroWidget from '../components/3D/HeroWidget';
@@ -81,8 +81,8 @@ const MiniCalendarGrid = ({ currentDate, selectedDate, events = [], onDateSelect
 };
 
 // Helper function to get greeting based on time
-const getGreeting = () => {
-  const hour = new Date().getHours();
+const getGreeting = (date = new Date()) => {
+  const hour = date.getHours();
   if (hour >= 5 && hour < 12) return { text: 'Good Morning', Icon: Coffee, color: 'text-amber-400' };
   if (hour >= 12 && hour < 17) return { text: 'Good Afternoon', Icon: Sun, color: 'text-yellow-400' };
   if (hour >= 17 && hour < 21) return { text: 'Good Evening', Icon: Sunset, color: 'text-orange-400' };
@@ -117,6 +117,15 @@ const Dashboard = () => {
   // Initialize from cache if available
   const [allEventsRaw, setAllEventsRaw] = useState(dashboardEvents || []);
   const [loadingEvents, setLoadingEvents] = useState(!dashboardEvents);
+
+  // Real-time clock state
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    // Update time every second to match system clock, or at least every minute
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [invites, setInvites] = useState([]);
@@ -309,11 +318,11 @@ const Dashboard = () => {
             <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-700" />
             <div className="relative z-10 flex items-start gap-4">
               <div className={`p-3 rounded-2xl bg-white/5 border border-white/10`}>
-                {(() => { const g = getGreeting(); return <g.Icon className={`w-6 h-6 ${g.color}`} />; })()}
+                {(() => { const g = getGreeting(currentTime); return <g.Icon className={`w-6 h-6 ${g.color}`} />; })()}
               </div>
               <div>
                 <h2 className="text-sm font-medium text-gray-400 tracking-wider uppercase">
-                  {getGreeting().text}
+                  {getGreeting(currentTime).text}
                 </h2>
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 tracking-tight uppercase">
                   {user?.name?.split(' ')[0]}
@@ -356,11 +365,11 @@ const Dashboard = () => {
                 <span className="text-xs font-medium text-indigo-300 uppercase tracking-widest">Current Time</span>
               </div>
               <div className="text-5xl font-semibold text-white tracking-tight mb-1">
-                {format(new Date(), 'h:mm')}
-                <span className="text-2xl text-indigo-300/80 ml-1 font-medium">{format(new Date(), 'a')}</span>
+                {format(currentTime, 'h:mm')}
+                <span className="text-2xl text-indigo-300/80 ml-1 font-medium">{format(currentTime, 'a')}</span>
               </div>
               <div className="text-sm text-gray-500">
-                {format(new Date(), 'EEEE, MMM d')}
+                {format(currentTime, 'EEEE, MMM d')}
               </div>
             </div>
           </GlassPanel>
@@ -620,38 +629,69 @@ const Dashboard = () => {
         </GlassPanel>
 
         <GlassPanel className="p-6">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex justify-between items-center">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             Pending Invites
-            {invites.length > 0 && <span className="bg-blue-500 text-white py-0.5 px-2 rounded-full text-[10px]">{invites.length}</span>}
+            {invites.length > 0 && (
+              <div className="relative p-2 rounded-xl bg-white/5 border border-white/10">
+                <Mail className="w-4 h-4 text-gray-300" strokeWidth={1.5} />
+                <span className="absolute -top-1.5 -right-1.5 bg-indigo-400/70 text-white min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-medium flex items-center justify-center">
+                  {invites.length}
+                </span>
+              </div>
+            )}
           </h3>
           <div className="space-y-4">
             {invites.length > 0 ? invites.map(invite => (
               <div key={invite._id} className="pb-4 border-b border-white/5 last:border-0 last:pb-0">
-                <p className="font-semibold text-sm text-gray-200">{invite.calendar?.name}</p>
-                <p className="text-xs text-gray-500 mt-1">Invited by <span className="text-indigo-300">{invite.calendar?.user?.name}</span></p>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => respondToInvite(invite._id, 'accepted')} className="flex-1 py-1.5 bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-medium rounded hover:bg-blue-600/30">Accept</button>
-                  <button onClick={() => respondToInvite(invite._id, 'declined')} className="flex-1 py-1.5 bg-white/5 border border-white/10 text-gray-400 text-xs font-medium rounded hover:bg-white/10">Decline</button>
+                <h4 className="font-semibold text-white mb-1">{invite.calendar?.name}</h4>
+                <p className="text-xs text-gray-400 mb-3">
+                  Invited by <span className="text-indigo-300 font-medium">{invite.calendar?.user?.name}</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => respondToInvite(invite._id, 'accepted')}
+                    className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/25 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Accept
+                  </button>
+                  <button
+                    onClick={() => respondToInvite(invite._id, 'declined')}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <X className="w-3.5 h-3.5" /> Decline
+                  </button>
                 </div>
               </div>
-            )) : <p className="text-sm text-gray-500 italic">No pending invitations.</p>}
+            )) : (
+              <p className="text-sm text-gray-500 italic text-center py-4">No pending invitations</p>
+            )}
           </div>
         </GlassPanel>
 
         <GlassPanel className="p-6">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Recent Activity</h3>
-          <div className="space-y-4">
-            {activities.length > 0 ? activities.map(activity => (
-              <div key={activity._id} className="flex items-start space-x-3 group">
-                <div className={`mt-0.5 p-1.5 rounded-lg bg-white/5 text-gray-400`}>
-                  <FileText className="w-3 h-3" />
+          <div className="relative space-y-0">
+            {/* Timeline line */}
+            {activities.length > 0 && <div className="absolute left-[7px] top-3 bottom-4 w-px bg-gradient-to-b from-white/10 via-white/5 to-transparent" />}
+
+            {activities.length > 0 ? activities.map((activity, idx) => (
+              <div key={activity._id} className="flex items-start gap-3 py-2.5 rounded-lg hover:bg-white/5 transition-all group relative">
+                <div className="relative z-10 w-[15px] h-[15px] rounded-full flex items-center justify-center border border-white/20 bg-dark-bg group-hover:border-indigo-500/50 transition-all mt-0.5 flex-shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/80" />
                 </div>
-                <div>
-                  <p className="text-sm text-gray-300 group-hover:text-white transition-colors">{activity.details}</p>
-                  <p className="text-[10px] text-gray-600 mt-1">{formatTimestamp(activity.createdAt)}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-300 group-hover:text-white transition-colors leading-relaxed">
+                    {activity.details}
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    {formatTimestamp(activity.createdAt)}
+                  </p>
                 </div>
               </div>
-            )) : <p className="text-sm text-gray-500 italic">No recent activity.</p>}
+            )) : (
+              <p className="text-sm text-gray-500 italic text-center py-4">No recent activity</p>
+            )}
           </div>
         </GlassPanel>
       </div >
