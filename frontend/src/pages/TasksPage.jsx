@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCalendar } from '../context/CalendarContext';
-import { Plus, Trash2, CheckCircle, Circle, Clock, Sparkles } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, Circle, Clock, Sparkles, PartyPopper } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassPanel from '../components/UI/GlassPanel';
 import { format } from 'date-fns';
@@ -75,11 +75,11 @@ const TasksPage = () => {
                 animate={{ opacity: 1 }}
                 className="py-12 px-8 text-center rounded-2xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5"
               >
-                <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-green-500/10 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-green-400/50" />
+                <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                  <PartyPopper className="w-6 h-6 text-blue-400" />
                 </div>
                 <p className="text-gray-400 text-sm font-medium mb-1">All caught up!</p>
-                <p className="text-gray-600 text-xs">No pending tasks. Great job!</p>
+                <p className="text-blue-400 text-xs font-medium">No pending tasks. Great job!</p>
               </motion.div>
             )}
             {pendingTasks.map((task) => (

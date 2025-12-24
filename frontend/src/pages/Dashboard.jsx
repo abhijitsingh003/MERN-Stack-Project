@@ -19,7 +19,7 @@ import {
   startOfDay,
   endOfDay
 } from 'date-fns';
-import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Square, CheckSquare, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil } from 'lucide-react';
+import { Video, MapPin, Clock, ChevronLeft, ChevronRight, FileText, Check, Loader2, ArrowRight, Trash2, Square, CheckSquare, Coffee, Sun, Sunset, Moon, Calendar as CalendarIcon, Plus, Pencil, Sparkles } from 'lucide-react';
 import { formatTimestamp } from '../utils/formatTimestamp';
 import GlassPanel from '../components/UI/GlassPanel';
 import HeroWidget from '../components/3D/HeroWidget';
@@ -431,8 +431,8 @@ const Dashboard = () => {
                       ? "No upcoming events match your search."
                       : (isTodayDate ? (
                         <div className="flex flex-col items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center mb-1">
-                            <Coffee className="w-6 h-6 text-amber-400/60" />
+                          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-1">
+                            <Sparkles className="w-6 h-6 text-indigo-400" />
                           </div>
                           <span>No upcoming events for today.</span>
                           <span className="text-xs opacity-60">Time to relax and recharge!</span>
