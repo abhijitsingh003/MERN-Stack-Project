@@ -16,7 +16,7 @@ const SettingsPage = () => {
     const fetchPreferences = async () => {
       if (!token) return;
       try {
-        const res = await fetch('http://localhost:5000/api/users/preferences', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/preferences`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -35,9 +35,9 @@ const SettingsPage = () => {
   const handleSave = async () => {
     setSaving(true);
     setStatus({ type: '', message: '' });
-    
+
     try {
-      const res = await fetch('http://localhost:5000/api/users/preferences', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/preferences`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ const SettingsPage = () => {
         },
         body: JSON.stringify({ emailNotifications }),
       });
-      
+
       if (res.ok) {
         setStatus({ type: 'success', message: 'Preferences saved successfully!' });
         setTimeout(() => setStatus({ type: '', message: '' }), 3000);
@@ -87,7 +87,7 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="p-6 space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-400 flex items-center gap-2">
@@ -122,7 +122,7 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -131,19 +131,17 @@ const SettingsPage = () => {
             ) : (
               <div className="space-y-6">
                 {/* Email Notifications Toggle */}
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
                   onClick={() => setEmailNotifications(!emailNotifications)}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`p-2 rounded-lg transition-colors ${
-                      emailNotifications 
-                        ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20' 
+                    <div className={`p-2 rounded-lg transition-colors ${emailNotifications
+                        ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20'
                         : 'bg-white/5'
-                    }`}>
-                      <Bell className={`w-5 h-5 transition-colors ${
-                        emailNotifications ? 'text-amber-400' : 'text-gray-500'
-                      }`} />
+                      }`}>
+                      <Bell className={`w-5 h-5 transition-colors ${emailNotifications ? 'text-amber-400' : 'text-gray-500'
+                        }`} />
                     </div>
                     <div>
                       <h4 className="text-white font-medium">Email Notifications</h4>
@@ -154,15 +152,13 @@ const SettingsPage = () => {
                   </div>
                   <button
                     type="button"
-                    className={`relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0 ${
-                      emailNotifications 
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30' 
+                    className={`relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0 ${emailNotifications
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30'
                         : 'bg-white/10'
-                    }`}
+                      }`}
                   >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${
-                      emailNotifications ? 'left-7' : 'left-1'
-                    }`} />
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${emailNotifications ? 'left-7' : 'left-1'
+                      }`} />
                   </button>
                 </div>
 
@@ -173,11 +169,10 @@ const SettingsPage = () => {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                        status.type === 'success' 
-                          ? 'bg-green-500/10 border border-green-500/20 text-green-400' 
+                      className={`p-3 rounded-xl text-sm flex items-center gap-2 ${status.type === 'success'
+                          ? 'bg-green-500/10 border border-green-500/20 text-green-400'
                           : 'bg-red-500/10 border border-red-500/20 text-red-400'
-                      }`}
+                        }`}
                     >
                       {status.type === 'success' ? (
                         <Check className="w-4 h-4" />
@@ -191,7 +186,7 @@ const SettingsPage = () => {
               </div>
             )}
           </div>
-          
+
           {/* Save Button */}
           <div className="px-6 py-4 bg-white/5 border-t border-white/5 flex justify-end">
             <button

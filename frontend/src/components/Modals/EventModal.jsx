@@ -250,7 +250,7 @@ const EventModal = ({ isOpen, onClose, selectedDate, initialStartTime, initialEn
     if (query.length < 2) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/availability/users/search?q=${encodeURIComponent(query)}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/availability/users/search?q=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
