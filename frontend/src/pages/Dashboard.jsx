@@ -141,9 +141,9 @@ const Dashboard = () => {
     const fetchData = async () => {
       if (!token) return;
       try {
-        const invitesRes = await fetch(`${import.meta.env.VITE_API_URL}/api/shares/invites`, { headers: { Authorization: `Bearer ${token}` } });
+        const invitesRes = await fetch('http://localhost:5000/api/shares/invites', { headers: { Authorization: `Bearer ${token}` } });
         if (invitesRes.ok) setInvites(await invitesRes.json());
-        const activityRes = await fetch(`${import.meta.env.VITE_API_URL}/api/activity`, { headers: { Authorization: `Bearer ${token}` } });
+        const activityRes = await fetch('http://localhost:5000/api/activity', { headers: { Authorization: `Bearer ${token}` } });
         if (activityRes.ok) setActivities(await activityRes.json());
       } catch (error) { console.error(error); }
     };
@@ -289,7 +289,7 @@ const Dashboard = () => {
 
   const respondToInvite = async (id, status) => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/shares/invites/${id}`, {
+      await fetch(`http://localhost:5000/api/shares/invites/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status })

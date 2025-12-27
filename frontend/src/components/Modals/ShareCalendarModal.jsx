@@ -26,7 +26,7 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
 
     setLoadingShares(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shares/calendar/${calendarId}`, {
+      const res = await fetch(`http://localhost:5000/api/shares/calendar/${calendarId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -52,7 +52,7 @@ const ShareCalendarModal = ({ isOpen, onClose, calendarId, calendarName }) => {
   const handleRemoveShare = async (shareId) => {
     setRemovingShareId(shareId);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shares/${shareId}`, {
+      const res = await fetch(`http://localhost:5000/api/shares/${shareId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

@@ -16,7 +16,7 @@ const SettingsPage = () => {
     const fetchPreferences = async () => {
       if (!token) return;
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/preferences`, {
+        const res = await fetch('http://localhost:5000/api/users/preferences', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -37,7 +37,7 @@ const SettingsPage = () => {
     setStatus({ type: '', message: '' });
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/preferences`, {
+      const res = await fetch('http://localhost:5000/api/users/preferences', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
